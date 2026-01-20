@@ -1,131 +1,219 @@
-import React, { useEffect, useState, useRef } from 'react'
-import * as echarts from 'echarts'
+import React, { useEffect, useState } from 'react'
 import { FieldMap } from './types'
 
-declare global {
-  interface Window {
-    google: any
+interface Settings {
+  layout?: {
+    columns?: number
+    gap?: number
   }
-}
-interface RenderData {
-  name: string
-  value: number
-}
-
-const useChart = (chartRef: React.RefObject<HTMLElement>, options: any) => {
-  let chartInstance: echarts.ECharts
-
-  const renderChart = () => {
-    if (chartRef?.current) {
-      chartInstance = echarts.init(chartRef?.current)
-      chartInstance.setOption(options)
-    }
-  }
-  useEffect(() => {
-    renderChart()
-  }, [options])
-  useEffect(() => {
-    return () => {
-      chartInstance && chartInstance.dispose()
-    }
-  }, [])
-
-  return
 }
 
 const App: React.FC = () => {
-  const chartRef = useRef<HTMLElement>(null)
-  const [vizData, setVizData] = useState(null)
-  const [settings, setSettings] = useState(null)
-  const [renderData, setRenderData] = useState<RenderData[]>()
+  const [vizData, setVizData] = useState<any>(null)
+  const [settings, setSettings] = useState<Settings | null>(null)
 
   useEffect(() => {
-    window.onmessage = (
+    const handleMessage = (
       e: MessageEvent<{
         type: string
         data: {
-          vizData: any;
-          language: 'zh_CN' | 'en_US';
+          vizData: any
+          settings: Settings
         }
       }>
     ) => {
+      console.log('Received message:', e.data)
+
+      // 忽略非对象类型的消息
+      if (!e.data || typeof e.data !== 'object') {
+        return
+      }
+
       const { type, data } = e.data
       if (type === 'propertiesChange') {
-        console.log(111, data.vizData)
-        console.log(222, data.settings)
-        setVizData(data.vizData)
-        setSettings(data.settings)
+        console.log('vizData:', data?.vizData)
+        console.log('settings:', data?.settings)
+        if (data?.vizData) {
+          setVizData(data.vizData)
+        }
+        if (data?.settings) {
+          setSettings(data.settings)
+        }
       }
+    }
+
+    window.addEventListener('message', handleMessage)
+
+    // 清理函数
+    return () => {
+      window.removeEventListener('message', handleMessage)
     }
   }, [])
 
-  useEffect(() => {
-    if (vizData) {
-      const data = transformData(vizData)
-      setRenderData(data)
-    }
-  }, [vizData])
+  // 获取表头（字段名称）
+  const getHeaders = (): { id: string; name: string }[] => {
+    if (!vizData?.fieldMap) return []
+    const locationMap = vizData.locationMap || {}
+    const dimensions = locationMap[FieldMap.Dimension] || []
+    const measures = locationMap[FieldMap.Measure] || []
+    const allFieldIds = [...dimensions, ...measures]
 
-  // 将vizData转换为echarts数据结构
-  const transformData = (vizData) => {
-    const { locationMap, datasets } = vizData
-    const nameField = locationMap[FieldMap.Dimension]?.[0]
-    const valueField = locationMap[FieldMap.Measure]?.[0]
-
-    const data = datasets.map((item) => ({
-      name: item[nameField],
-      value: parseFloat(item[valueField]),
+    return allFieldIds.map((id: string) => ({
+      id,
+      name: vizData.fieldMap[id]?.alias || id,
     }))
-    return data
   }
 
-  const color = settings?.theme?.color ?? [
-    '#c23531',
-    '#2f4554',
-    '#61a0a8',
-    '#d48265',
-    '#91c7ae',
-    '#749f83',
-    '#ca8622',
-    '#bda29a',
-    '#6e7074',
-    '#546570',
-    '#c4ccd3'
-  ]
-
-  const options = {
-    color,
-    title: {
-      text: 'react echarts demo',
-      left: 'center'
-    },
-    tooltip: {
-      trigger: 'item'
-    },
-    legend: {
-      left: "center",
-      top: "bottom",
-      orient: "horizontal",
-      // orient: 'vertical',
-    },
-    series: [
-      {
-        name: 'Access From',
-        type: 'pie',
-        radius: '50%',
-        data: renderData,
-      }
-    ]
+  // 获取表格数据
+  const getTableData = (): any[] => {
+    return vizData?.datasets || []
   }
-  useChart(chartRef, options)
+
+  const headers = getHeaders()
+  const tableData = getTableData()
+
+  const styles = {
+    container: {
+      width: '100%',
+      height: '100%',
+      overflow: 'auto',
+      padding: 16,
+      boxSizing: 'border-box' as const,
+      backgroundColor: '#f5f5f5',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    },
+    debugInfo: {
+      marginBottom: 16,
+      padding: 12,
+      backgroundColor: '#fff3cd',
+      border: '1px solid #ffc107',
+      borderRadius: 4,
+      fontSize: 12,
+      color: '#856404',
+    },
+    table: {
+      width: '100%',
+      borderCollapse: 'collapse' as const,
+      backgroundColor: '#fff',
+      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+      borderRadius: 8,
+      overflow: 'hidden',
+    },
+    th: {
+      padding: '12px 16px',
+      textAlign: 'left' as const,
+      backgroundColor: '#1890ff',
+      color: '#fff',
+      fontWeight: 600,
+      fontSize: 14,
+      borderBottom: '2px solid #096dd9',
+    },
+    td: {
+      padding: '12px 16px',
+      textAlign: 'left' as const,
+      borderBottom: '1px solid #e8e8e8',
+      fontSize: 14,
+      color: '#333',
+      maxWidth: 300,
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap' as const,
+    },
+    tr: {
+      transition: 'background-color 0.2s',
+    },
+    trHover: {
+      backgroundColor: '#f5f5f5',
+    },
+    empty: {
+      display: 'flex',
+      flexDirection: 'column' as const,
+      justifyContent: 'center',
+      alignItems: 'center',
+      height: '100%',
+      color: '#999',
+      fontSize: 14,
+      gap: 8,
+    },
+    rawData: {
+      marginTop: 16,
+      padding: 12,
+      backgroundColor: '#f6f8fa',
+      border: '1px solid #e1e4e8',
+      borderRadius: 6,
+      fontSize: 12,
+      fontFamily: 'monospace',
+      whiteSpace: 'pre-wrap' as const,
+      wordBreak: 'break-all' as const,
+      maxHeight: 200,
+      overflow: 'auto',
+    },
+  }
+
+  // 显示调试信息
+  const renderDebugInfo = () => (
+    <div style={styles.debugInfo}>
+      <strong>调试信息：</strong>
+      <div>vizData 状态: {vizData ? '已接收' : '未接收'}</div>
+      <div>datasets 数量: {vizData?.datasets?.length ?? 0}</div>
+      <div>字段数量: {headers.length}</div>
+      <div>locationMap: {JSON.stringify(vizData?.locationMap || {})}</div>
+    </div>
+  )
+
+  // 如果没有数据，显示提示信息和原始数据
+  if (!vizData || tableData.length === 0) {
+    return (
+      <div style={styles.container}>
+        {renderDebugInfo()}
+        <div style={styles.empty}>
+          <div>暂无数据</div>
+          <div>请配置维度字段并执行查询</div>
+        </div>
+        {vizData && (
+          <div style={styles.rawData}>
+            <strong>原始 vizData：</strong>
+            <pre>{JSON.stringify(vizData, null, 2)}</pre>
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
-    <>
-      <div
-        style={{ width: "100%", height: "100%" }}
-        ref={chartRef}
-      />
-    </>
+    <div style={styles.container}>
+      {renderDebugInfo()}
+      <table style={styles.table}>
+        <thead>
+          <tr>
+            <th style={styles.th}>#</th>
+            {headers.map((header) => (
+              <th key={header.id} style={styles.th}>
+                {header.name}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {tableData.map((row, rowIndex) => (
+            <tr key={rowIndex} style={styles.tr}>
+              <td style={styles.td}>{rowIndex + 1}</td>
+              {headers.map((header) => (
+                <td key={header.id} style={styles.td} title={String(row[header.id] ?? '')}>
+                  {String(row[header.id] ?? '-')}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {/* 显示原始数据用于调试 */}
+      <div style={styles.rawData}>
+        <strong>原始 vizData：</strong>
+        <pre>{JSON.stringify(vizData, null, 2)}</pre>
+      </div>
+    </div>
   )
 }
 
