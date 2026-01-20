@@ -21,7 +21,7 @@
     "vizQuery.chart.renderer": [
       {
         "id": "<%= chartId %>",
-        "name": "extension-react",
+        "name": "图虫image-viewer",
         "content": "dist/index.html",
         "icon": ""
       }
