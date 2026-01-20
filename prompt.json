@@ -1,0 +1,6 @@
+{
+  "type": "text",
+  "name": "chartId",
+  "initial": "my-extension-chart",
+  "message": "Please input chart id"
+}
