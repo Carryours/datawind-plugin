@@ -51,14 +51,49 @@ interface ImageCard {
   imageUrl: string
   fields: FieldInfo[]  // 所有字段，包含 key
   lrZs?: string        // 模型一级分类 LR_ZS 字段
+  materialId?: string  // 素材ID
 }
 
 const App: React.FC = () => {
   const [vizData, setVizData] = useState<any>(null)
   const [settings, setSettings] = useState<Settings | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
 
   const columns = settings?.layout?.columns ?? 4
   const gap = settings?.layout?.gap ?? 16
+
+  // 切换选中状态
+  const toggleSelect = (index: number) => {
+    setSelectedIds(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(index)) {
+        newSet.delete(index)
+      } else {
+        newSet.add(index)
+      }
+      return newSet
+    })
+  }
+
+  // 导出 CSV
+  const exportCSV = (cards: ImageCard[]) => {
+    const selectedCards = Array.from(selectedIds)
+      .map(index => cards[index])
+      .filter(card => card?.materialId)
+
+    if (selectedCards.length === 0) {
+      alert('请先选择要导出的图片，且图片需要包含素材ID')
+      return
+    }
+
+    const csvContent = '素材ID\n' + selectedCards.map(card => card.materialId).join('\n')
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `素材ID_${new Date().toISOString().slice(0, 10)}.csv`
+    link.click()
+    URL.revokeObjectURL(link.href)
+  }
 
   useEffect(() => {
     const handleMessage = (
@@ -107,6 +142,7 @@ const App: React.FC = () => {
     return datasets.map((row: any) => {
       let imageUrl = ''
       let lrZs = ''
+      let materialId = ''
       const fields: FieldInfo[] = []
 
       // 遍历所有字段
@@ -126,6 +162,11 @@ const App: React.FC = () => {
           lrZs = value
         }
 
+        // 查找素材ID字段
+        if (!materialId && (fieldName === '素材id' || fieldName === '素材ID' || fieldName === '素材Id')) {
+          materialId = value
+        }
+
         // 记录所有字段信息
         fields.push({
           key: fieldId,
@@ -136,7 +177,7 @@ const App: React.FC = () => {
         })
       }
 
-      return { imageUrl, fields, lrZs }
+      return { imageUrl, fields, lrZs, materialId }
     }).filter((card: ImageCard) => card.imageUrl) // 只保留有图片的卡片
   }
 
@@ -260,6 +301,55 @@ const App: React.FC = () => {
       maxHeight: 200,
       overflow: 'auto',
     },
+    toolbar: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 16,
+      padding: '12px 16px',
+      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+      borderRadius: 8,
+      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
+    },
+    toolbarInfo: {
+      fontSize: 14,
+      color: '#666',
+    },
+    exportButton: {
+      padding: '8px 20px',
+      backgroundColor: '#1890ff',
+      color: '#fff',
+      border: 'none',
+      borderRadius: 6,
+      fontSize: 14,
+      fontWeight: 500,
+      cursor: 'pointer',
+      transition: 'background-color 0.2s',
+    },
+    checkbox: {
+      position: 'absolute' as const,
+      top: 8,
+      left: 8,
+      width: 22,
+      height: 22,
+      backgroundColor: 'rgba(255, 255, 255, 0.9)',
+      border: '2px solid #d9d9d9',
+      borderRadius: 4,
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 10,
+      transition: 'all 0.2s',
+    },
+    checkboxSelected: {
+      backgroundColor: '#1890ff',
+      borderColor: '#1890ff',
+    },
+    cardSelected: {
+      border: '2px solid #1890ff',
+      boxShadow: '0 0 0 2px rgba(24, 144, 255, 0.2)',
+    },
   }
 
   // 渲染字段值
@@ -341,53 +431,92 @@ const App: React.FC = () => {
 
   return (
     <div style={styles.container}>
-      {/* {renderDebugInfo()} */}
+      {/* 工具栏 */}
+      <div style={styles.toolbar}>
+        <span style={styles.toolbarInfo}>
+          已选择 <strong>{selectedIds.size}</strong> 张图片
+          {selectedIds.size > 0 && ` (共 ${imageCards.length} 张)`}
+        </span>
+        <button
+          style={{
+            ...styles.exportButton,
+            opacity: selectedIds.size === 0 ? 0.5 : 1,
+          }}
+          onClick={() => exportCSV(imageCards)}
+          disabled={selectedIds.size === 0}
+        >
+          导出CSV
+        </button>
+      </div>
       <div style={styles.grid}>
-        {imageCards.map((card, index) => (
-          <div
-            key={index}
-            style={styles.card}
-            onClick={() => window.open(card.imageUrl, '_blank')}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-4px)'
-              e.currentTarget.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.12)'
-              const img = e.currentTarget.querySelector('img')
-              if (img) img.style.transform = 'scale(1.05)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = ''
-              e.currentTarget.style.boxShadow = ''
-              const img = e.currentTarget.querySelector('img')
-              if (img) img.style.transform = ''
-            }}
-          >
-            <div style={styles.imageWrapper}>
-              {card.lrZs && (
-                <div style={styles.badge}>
-                  {card.lrZs}
+        {imageCards.map((card, index) => {
+          const isSelected = selectedIds.has(index)
+          return (
+            <div
+              key={index}
+              style={{
+                ...styles.card,
+                ...(isSelected ? styles.cardSelected : {}),
+              }}
+              // onClick={() => window.open(card.imageUrl, '_blank')}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-4px)'
+                e.currentTarget.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.12)'
+                const img = e.currentTarget.querySelector('img')
+                if (img) img.style.transform = 'scale(1.05)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = ''
+                e.currentTarget.style.boxShadow = ''
+                const img = e.currentTarget.querySelector('img')
+                if (img) img.style.transform = ''
+              }}
+            >
+              <div style={styles.imageWrapper}>
+                {/* 复选框 */}
+                <div
+                  style={{
+                    ...styles.checkbox,
+                    ...(isSelected ? styles.checkboxSelected : {}),
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    toggleSelect(index)
+                  }}
+                >
+                  {isSelected && (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
+                      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                    </svg>
+                  )}
                 </div>
-              )}
-              <img
-                src={card.imageUrl}
-                alt="图片"
-                style={styles.image}
-                loading="lazy"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement
-                  target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect fill="%23f0f0f0" width="100" height="100"/><text fill="%23999" font-size="12" x="50" y="50" text-anchor="middle" dy=".3em">加载失败</text></svg>'
-                }}
-              />
+                {card.lrZs && (
+                  <div style={styles.badge}>
+                    {card.lrZs}
+                  </div>
+                )}
+                <img
+                  src={card.imageUrl}
+                  alt="图片"
+                  style={styles.image}
+                  loading="lazy"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement
+                    target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect fill="%23f0f0f0" width="100" height="100"/><text fill="%23999" font-size="12" x="50" y="50" text-anchor="middle" dy=".3em">加载失败</text></svg>'
+                  }}
+                />
+              </div>
+              <div style={styles.cardContent}>
+                {card.fields.filter((field) => field.name !== '预览').map((field, idx) => (
+                  <div key={idx} style={styles.fieldRow}>
+                    <span style={styles.fieldKey}>{field.name}:</span>
+                    {renderFieldValue(field)}
+                  </div>
+                ))}
+              </div>
             </div>
-            <div style={styles.cardContent}>
-              {card.fields.filter((field) => field.name !== '预览').map((field, idx) => (
-                <div key={idx} style={styles.fieldRow}>
-                  <span style={styles.fieldKey}>{field.name}:</span>
-                  {renderFieldValue(field)}
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )
