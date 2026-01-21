@@ -1,70 +1,30 @@
-import React, { useEffect, useState } from 'react'
-import { FieldMap } from './types'
-
-interface Settings {
-  layout?: {
-    columns?: number
-    gap?: number
-  }
-}
-
-// 判断是否是 URL
-const isUrl = (value: string): boolean => {
-  if (!value || typeof value !== 'string') return false
-  return value.startsWith('http://') || value.startsWith('https://')
-}
-
-// 判断是否是图片 URL
-const isImageUrl = (value: string): boolean => {
-  if (!isUrl(value)) return false
-
-  // 检查常见图片扩展名
-  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp', '.ico']
-  const lowerValue = value.toLowerCase().split('?')[0]
-
-  if (imageExtensions.some(ext => lowerValue.endsWith(ext))) {
-    return true
-  }
-
-  // 检查常见图片服务的 URL 模式
-  const imagePatterns = [
-    /\/image\//i,
-    /\/img\//i,
-    /\/photo\//i,
-    /\/pic\//i,
-    /\.image$/i,
-    /format=(?:jpg|jpeg|png|gif|webp)/i,
-  ]
-
-  return imagePatterns.some(pattern => pattern.test(value))
-}
-
-interface FieldInfo {
-  key: string      // 字段 ID
-  name: string     // 字段名称（alias）
-  value: string    // 字段值
-  isImage: boolean // 是否是图片
-  isUrl: boolean   // 是否是普通 URL
-}
-
-interface ImageCard {
-  imageUrl: string
-  fields: FieldInfo[]  // 所有字段，包含 key
-  lrZs?: string        // 模型一级分类 LR_ZS 字段
-  materialId?: string  // 素材ID
-}
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react'
+import { FieldMap, Settings, FieldInfo, ImageCard } from './types'
+import { theme } from './theme'
+import { isUrl, isImageUrl } from './utils'
+import { CARD_HEIGHT, BUFFER_SIZE, ROW_GAP } from './constants'
+import { ExportModal } from './components/ExportModal'
+import { ImageCardItem } from './components/ImageCardItem'
+import './styles/index.less'
 
 const App: React.FC = () => {
   const [vizData, setVizData] = useState<any>(null)
   const [settings, setSettings] = useState<Settings | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [showExportModal, setShowExportModal] = useState(false)
+  const [exportFields, setExportFields] = useState<Set<string>>(new Set())
+
+  // 虚拟滚动状态
+  const [scrollTop, setScrollTop] = useState(0)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   const columns = settings?.layout?.columns ?? 4
-  const gap = settings?.layout?.gap ?? 16
+  const gap = settings?.layout?.gap ?? ROW_GAP
+
 
   // 切换选中状态
-  const toggleSelect = (index: number) => {
-    setSelectedIds(prev => {
+  const toggleSelect = useCallback((index: number) => {
+    setSelectedIds((prev) => {
       const newSet = new Set(prev)
       if (newSet.has(index)) {
         newSet.delete(index)
@@ -73,28 +33,122 @@ const App: React.FC = () => {
       }
       return newSet
     })
-  }
+  }, [])
 
-  // 导出 CSV
-  const exportCSV = (cards: ImageCard[]) => {
+  // 切换导出字段
+  const toggleExportField = useCallback((field: string) => {
+    setExportFields((prev) => {
+      const newSet = new Set(prev)
+      if (newSet.has(field)) {
+        newSet.delete(field)
+      } else {
+        newSet.add(field)
+      }
+      return newSet
+    })
+  }, [])
+
+  // 从数据中提取图片卡片信息
+  const getImageCards = useCallback((): ImageCard[] => {
+    if (!vizData?.datasets || !vizData?.fieldMap) return []
+
+    const locationMap = vizData.locationMap || {}
+    const dimensions = locationMap[FieldMap.Dimension] || []
+    const measures = locationMap[FieldMap.Measure] || []
+    const allFieldIds = [...dimensions, ...measures]
+    const datasets = vizData.datasets || []
+
+    return datasets
+      .map((row: any) => {
+        let imageUrl = ''
+        let lrZs = ''
+        let materialId = ''
+        const fields: FieldInfo[] = []
+
+        for (const fieldId of allFieldIds) {
+          const value = String(row[fieldId] ?? '')
+          const fieldName = vizData.fieldMap[fieldId]?.alias || fieldId
+          const fieldIsImage = isImageUrl(value)
+          const fieldIsUrl = isUrl(value)
+
+          if (!imageUrl && fieldIsImage) {
+            imageUrl = value
+          }
+
+          if (fieldName === 'LR_ZS' || fieldId === 'LR_ZS' || fieldName.includes('LR_ZS')) {
+            lrZs = value
+          }
+
+          if (!materialId && (fieldName === '素材id' || fieldName === '素材ID' || fieldName === '素材Id')) {
+            materialId = value
+          }
+
+          fields.push({
+            key: fieldId,
+            name: fieldName,
+            value,
+            isImage: fieldIsImage,
+            isUrl: fieldIsUrl,
+          })
+        }
+
+        return { imageUrl, fields, lrZs, materialId }
+      })
+      .filter((card: ImageCard) => card.imageUrl)
+  }, [vizData])
+
+  const imageCards = useMemo(() => getImageCards(), [getImageCards])
+
+  // 导出 CSV（支持自定义字段）
+  const handleExport = useCallback(() => {
+    if (exportFields.size === 0 || selectedIds.size === 0) return
+
     const selectedCards = Array.from(selectedIds)
-      .map(index => cards[index])
-      .filter(card => card?.materialId)
+      .map((index) => imageCards[index])
+      .filter(Boolean)
 
     if (selectedCards.length === 0) {
-      alert('请先选择要导出的图片，且图片需要包含素材ID')
+      alert('请先选择要导出的图片')
       return
     }
 
-    const csvContent = '素材ID\n' + selectedCards.map(card => card.materialId).join('\n')
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const fieldNames = Array.from(exportFields)
+    const headers = fieldNames.join(',')
+    const rows = selectedCards.map((card) => {
+      return fieldNames
+        .map((fieldName) => {
+          const field = card.fields.find((f) => f.name === fieldName)
+          const value = field?.value || ''
+          // CSV 转义处理
+          if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+            return `"${value.replace(/"/g, '""')}"`
+          }
+          return value
+        })
+        .join(',')
+    })
+
+    const csvContent = [headers, ...rows].join('\n')
+    const BOM = '\uFEFF'
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
     link.href = URL.createObjectURL(blob)
-    link.download = `素材ID_${new Date().toISOString().slice(0, 10)}.csv`
+    link.download = `导出数据_${new Date().toISOString().slice(0, 10)}.csv`
     link.click()
     URL.revokeObjectURL(link.href)
-  }
+    setShowExportModal(false)
+  }, [exportFields, selectedIds, imageCards])
 
+  // 全选/取消全选
+  const toggleSelectAll = useCallback(() => {
+    if (selectedIds.size === imageCards.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(imageCards.map((_, i) => i)))
+    }
+  }, [selectedIds.size, imageCards])
+
+  // 监听消息
   useEffect(() => {
     const handleMessage = (
       e: MessageEvent<{
@@ -105,16 +159,12 @@ const App: React.FC = () => {
         }
       }>
     ) => {
-      console.log('Received message:', e.data)
-
-      if (!e.data || typeof e.data !== 'object') {
-        return
-      }
-
+      if (!e.data || typeof e.data !== 'object') return
       const { type, data } = e.data
       if (type === 'propertiesChange') {
         if (data?.vizData) {
           setVizData(data.vizData)
+          setSelectedIds(new Set())
         }
         if (data?.settings) {
           setSettings(data.settings)
@@ -123,401 +173,260 @@ const App: React.FC = () => {
     }
 
     window.addEventListener('message', handleMessage)
-
-    return () => {
-      window.removeEventListener('message', handleMessage)
-    }
+    return () => window.removeEventListener('message', handleMessage)
   }, [])
 
-  // 从数据中提取图片卡片信息
-  const getImageCards = (): ImageCard[] => {
-    if (!vizData?.datasets || !vizData?.fieldMap) return []
-
-    const locationMap = vizData.locationMap || {}
-    const dimensions = locationMap[FieldMap.Dimension] || []
-    const measures = locationMap[FieldMap.Measure] || []
-    const allFieldIds = [...dimensions, ...measures]
-    const datasets = vizData.datasets || []
-
-    return datasets.map((row: any) => {
-      let imageUrl = ''
-      let lrZs = ''
-      let materialId = ''
-      const fields: FieldInfo[] = []
-
-      // 遍历所有字段
-      for (const fieldId of allFieldIds) {
-        const value = String(row[fieldId] ?? '')
-        const fieldName = vizData.fieldMap[fieldId]?.alias || fieldId
-        const fieldIsImage = isImageUrl(value)
-        const fieldIsUrl = isUrl(value)
-
-        // 找到第一个图片 URL 作为主图
-        if (!imageUrl && fieldIsImage) {
-          imageUrl = value
+  // 获取所有可导出的字段名
+  const availableFields = useMemo(() => {
+    if (imageCards.length === 0) return []
+    const fieldSet = new Set<string>()
+    imageCards.forEach((card) => {
+      card.fields.forEach((field) => {
+        if (field.name !== '预览') {
+          fieldSet.add(field.name)
         }
+      })
+    })
+    return Array.from(fieldSet)
+  }, [imageCards])
 
-        // 查找 LR_ZS 字段（模型一级分类）
-        if (fieldName === 'LR_ZS' || fieldId === 'LR_ZS' || fieldName.includes('LR_ZS')) {
-          lrZs = value
-        }
+  // ============ 虚拟滚动计算 ============
+  const containerHeight = containerRef.current?.clientHeight || 800
+  const totalRows = Math.ceil(imageCards.length / columns)
+  const rowHeight = CARD_HEIGHT + gap
+  const totalHeight = totalRows * rowHeight
 
-        // 查找素材ID字段
-        if (!materialId && (fieldName === '素材id' || fieldName === '素材ID' || fieldName === '素材Id')) {
-          materialId = value
-        }
+  const startRow = Math.max(0, Math.floor(scrollTop / rowHeight) - BUFFER_SIZE)
+  const endRow = Math.min(totalRows, Math.ceil((scrollTop + containerHeight) / rowHeight) + BUFFER_SIZE)
 
-        // 记录所有字段信息
-        fields.push({
-          key: fieldId,
-          name: fieldName,
-          value,
-          isImage: fieldIsImage,
-          isUrl: fieldIsUrl,
-        })
-      }
+  const visibleCards = useMemo(() => {
+    const startIndex = startRow * columns
+    const endIndex = Math.min(endRow * columns, imageCards.length)
+    return imageCards.slice(startIndex, endIndex).map((card, i) => ({
+      card,
+      originalIndex: startIndex + i,
+    }))
+  }, [imageCards, startRow, endRow, columns])
 
-      return { imageUrl, fields, lrZs, materialId }
-    }).filter((card: ImageCard) => card.imageUrl) // 只保留有图片的卡片
-  }
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    setScrollTop(e.currentTarget.scrollTop)
+  }, [])
 
-  const imageCards = getImageCards()
-
-  // 使用透明/适配的颜色方案
-  const styles = {
-    container: {
-      width: '100%',
-      height: '100%',
-      overflow: 'auto',
-      padding: gap,
-      boxSizing: 'border-box' as const,
-      backgroundColor: 'transparent',  // 透明背景，适配父级
-    },
-    debugInfo: {
-      marginBottom: 16,
-      padding: 12,
-      backgroundColor: 'rgba(255, 243, 205, 0.9)',
-      border: '1px solid #ffc107',
-      borderRadius: 8,
-      fontSize: 12,
-      color: '#856404',
-    },
-    grid: {
-      display: 'grid',
-      gridTemplateColumns: `repeat(${columns}, 1fr)`,
-      gap: gap,
-    },
-    card: {
-      backgroundColor: 'rgba(255, 255, 255, 0.95)',  // 半透明白色，适配各种背景
-      borderRadius: 12,
-      overflow: 'hidden',
-      boxShadow: '0 2px 12px rgba(0, 0, 0, 0.08)',
-      border: '1px solid rgba(0, 0, 0, 0.06)',
-      transition: 'transform 0.3s ease, box-shadow 0.3s ease',
-      cursor: 'pointer',
-    },
-    imageWrapper: {
-      position: 'relative' as const,
-      width: '100%',
-      paddingTop: '75%', // 4:3 比例
-      overflow: 'hidden',
-      backgroundColor: '#f5f5f5',
-    },
-    badge: {
-      position: 'absolute' as const,
-      top: 0,
-      right: 0,
-      backgroundColor: '#f9c800',  // 黄色背景
-      color: '#333',
-      fontSize: 12,
-      fontWeight: 600,
-      padding: '4px 10px',
-      borderBottomLeftRadius: 8,
-      zIndex: 10,
-      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.15)',
-    },
-    image: {
-      position: 'absolute' as const,
-      top: 0,
-      left: 0,
-      width: '100%',
-      height: '100%',
-      objectFit: 'cover' as const,
-      transition: 'transform 0.3s ease',
-    },
-    cardContent: {
-      padding: '12px 14px',
-    },
-    fieldRow: {
-      display: 'flex',
-      fontSize: 12,
-      color: '#333',
-      marginBottom: 6,
-      lineHeight: 1.4,
-    },
-    fieldKey: {
-      color: '#666',
-      fontWeight: 500,
-      marginRight: 6,
-      flexShrink: 0,
-      minWidth: 50,
-    },
-    fieldValue: {
-      color: '#333',
-      overflow: 'hidden',
-      textOverflow: 'ellipsis',
-      whiteSpace: 'nowrap' as const,
-      flex: 1,
-    },
-    fieldValueUrl: {
-      color: '#1890ff',
-      textDecoration: 'none',
-      overflow: 'hidden',
-      textOverflow: 'ellipsis',
-      whiteSpace: 'nowrap' as const,
-      flex: 1,
-    },
-    empty: {
-      display: 'flex',
-      flexDirection: 'column' as const,
-      justifyContent: 'center',
-      alignItems: 'center',
-      height: '100%',
-      minHeight: 300,
-      color: '#999',
-      fontSize: 14,
-      gap: 8,
-    },
-    rawData: {
-      marginTop: 16,
-      padding: 12,
-      backgroundColor: 'rgba(246, 248, 250, 0.95)',
-      border: '1px solid #e1e4e8',
-      borderRadius: 8,
-      fontSize: 12,
-      fontFamily: 'monospace',
-      whiteSpace: 'pre-wrap' as const,
-      wordBreak: 'break-all' as const,
-      maxHeight: 200,
-      overflow: 'auto',
-    },
-    toolbar: {
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 16,
-      padding: '12px 16px',
-      backgroundColor: 'rgba(255, 255, 255, 0.95)',
-      borderRadius: 8,
-      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
-    },
-    toolbarInfo: {
-      fontSize: 14,
-      color: '#666',
-    },
-    exportButton: {
-      padding: '8px 20px',
-      backgroundColor: '#1890ff',
-      color: '#fff',
-      border: 'none',
-      borderRadius: 6,
-      fontSize: 14,
-      fontWeight: 500,
-      cursor: 'pointer',
-      transition: 'background-color 0.2s',
-    },
-    checkbox: {
-      position: 'absolute' as const,
-      top: 8,
-      left: 8,
-      width: 22,
-      height: 22,
-      backgroundColor: 'rgba(255, 255, 255, 0.9)',
-      border: '2px solid #d9d9d9',
-      borderRadius: 4,
-      cursor: 'pointer',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 10,
-      transition: 'all 0.2s',
-    },
-    checkboxSelected: {
-      backgroundColor: '#1890ff',
-      borderColor: '#1890ff',
-    },
-    cardSelected: {
-      border: '2px solid #1890ff',
-      boxShadow: '0 0 0 2px rgba(24, 144, 255, 0.2)',
-    },
-  }
-
-  // 渲染字段值
-  const renderFieldValue = (field: FieldInfo) => {
-    if (!field.value) return <span style={styles.fieldValue}>-</span>
-
-    // 图片链接显示缩略标记
-    if (field.isImage) {
-      return (
-        <span
-          style={styles.fieldValueUrl}
-          title={field.value}
-          onClick={(e) => {
-            e.stopPropagation()
-            window.open(field.value, '_blank')
-          }}
-        >
-          🖼️ [图片链接]
-        </span>
-      )
-    }
-
-    // 普通 URL
-    if (field.isUrl) {
-      return (
-        <span
-          style={styles.fieldValueUrl}
-          title={field.value}
-          onClick={(e) => {
-            e.stopPropagation()
-            window.open(field.value, '_blank')
-          }}
-        >
-          🔗 [链接]
-        </span>
-      )
-    }
-
-    // 普通文本
-    return (
-      <span style={styles.fieldValue} title={field.value}>
-        {field.value}
-      </span>
-    )
-  }
-
-  // 显示调试信息
-  // const renderDebugInfo = () => (
-  //   <div style={styles.debugInfo}>
-  //     <strong>调试信息：</strong>
-  //     <span style={{ marginLeft: 8 }}>
-  //       vizData: {vizData ? '✓' : '✗'} |
-  //       数据行: {vizData?.datasets?.length ?? 0} |
-  //       图片卡片: {imageCards.length} |
-  //       列数: {columns}
-  //     </span>
-  //   </div>
-  // )
-
-  // 如果没有数据
+  // 空状态
   if (!vizData || imageCards.length === 0) {
     return (
-      <div style={styles.container}>
-        {/* {renderDebugInfo()} */}
-        <div style={styles.empty}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>🖼️</div>
-          <div>暂无图片数据</div>
-          <div style={{ fontSize: 12 }}>请配置包含图片 URL 的维度字段</div>
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          backgroundColor: theme.bg.primary,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: theme.text.muted,
+          fontFamily: "'DM Sans', sans-serif",
+        }}
+      >
+        <div
+          style={{
+            width: 80,
+            height: 80,
+            borderRadius: 20,
+            backgroundColor: theme.bg.secondary,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: 24,
+          }}
+        >
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke={theme.text.muted} strokeWidth="1.5">
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <path d="M21 15l-5-5L5 21" />
+          </svg>
         </div>
-        {vizData && (
-          <div style={styles.rawData}>
-            <strong>原始数据：</strong>
-            <pre>{JSON.stringify(vizData, null, 2)}</pre>
-          </div>
-        )}
+        <p style={{ fontSize: 16, fontWeight: 500, marginBottom: 8 }}>暂无图片数据</p>
+        <p style={{ fontSize: 13, color: theme.text.muted }}>请配置包含图片 URL 的维度字段</p>
       </div>
     )
   }
 
   return (
-    <div style={styles.container}>
-      {/* 工具栏 */}
-      <div style={styles.toolbar}>
-        <span style={styles.toolbarInfo}>
-          已选择 <strong>{selectedIds.size}</strong> 张图片
-          {selectedIds.size > 0 && ` (共 ${imageCards.length} 张)`}
-        </span>
-        <button
-          style={{
-            ...styles.exportButton,
-            opacity: selectedIds.size === 0 ? 0.5 : 1,
-          }}
-          onClick={() => exportCSV(imageCards)}
-          disabled={selectedIds.size === 0}
-        >
-          导出CSV
-        </button>
-      </div>
-      <div style={styles.grid}>
-        {imageCards.map((card, index) => {
-          const isSelected = selectedIds.has(index)
-          return (
+    <div
+      style={{
+        width: '100%',
+        height: '100%',
+        backgroundColor: theme.bg.primary,
+        display: 'flex',
+        flexDirection: 'column',
+        fontFamily: "'DM Sans', sans-serif",
+      }}
+    >
+      {/* 顶部工具栏 */}
+      <div
+        style={{
+          padding: '14px 24px',
+          background: 'linear-gradient(to right, #ffffff, #f8fafc)',
+          borderBottom: `1px solid ${theme.border.medium}`,
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexShrink: 0,
+          position: 'relative',
+          zIndex: 10,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          {/* 全选按钮 */}
+          <button
+            onClick={toggleSelectAll}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '8px 14px',
+              borderRadius: 8,
+              border: `1px solid ${theme.border.medium}`,
+              backgroundColor: 'transparent',
+              color: theme.text.secondary,
+              fontSize: 13,
+              fontWeight: 500,
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = theme.text.muted
+              e.currentTarget.style.color = theme.text.primary
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = theme.border.medium
+              e.currentTarget.style.color = theme.text.secondary
+            }}
+          >
             <div
-              key={index}
               style={{
-                ...styles.card,
-                ...(isSelected ? styles.cardSelected : {}),
-              }}
-              // onClick={() => window.open(card.imageUrl, '_blank')}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-4px)'
-                e.currentTarget.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.12)'
-                const img = e.currentTarget.querySelector('img')
-                if (img) img.style.transform = 'scale(1.05)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = ''
-                e.currentTarget.style.boxShadow = ''
-                const img = e.currentTarget.querySelector('img')
-                if (img) img.style.transform = ''
+                width: 16,
+                height: 16,
+                borderRadius: 4,
+                border: `2px solid ${selectedIds.size === imageCards.length && imageCards.length > 0 ? theme.accent.primary : theme.border.strong}`,
+                backgroundColor: selectedIds.size === imageCards.length && imageCards.length > 0 ? theme.accent.primary : 'transparent',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
             >
-              <div style={styles.imageWrapper}>
-                {/* 复选框 */}
-                <div
-                  style={{
-                    ...styles.checkbox,
-                    ...(isSelected ? styles.checkboxSelected : {}),
-                  }}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    toggleSelect(index)
-                  }}
-                >
-                  {isSelected && (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
-                      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-                    </svg>
-                  )}
-                </div>
-                {card.lrZs && (
-                  <div style={styles.badge}>
-                    {card.lrZs}
-                  </div>
-                )}
-                <img
-                  src={card.imageUrl}
-                  alt="图片"
-                  style={styles.image}
-                  loading="lazy"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement
-                    target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect fill="%23f0f0f0" width="100" height="100"/><text fill="%23999" font-size="12" x="50" y="50" text-anchor="middle" dy=".3em">加载失败</text></svg>'
-                  }}
-                />
-              </div>
-              <div style={styles.cardContent}>
-                {card.fields.filter((field) => field.name !== '预览').map((field, idx) => (
-                  <div key={idx} style={styles.fieldRow}>
-                    <span style={styles.fieldKey}>{field.name}:</span>
-                    {renderFieldValue(field)}
-                  </div>
-                ))}
-              </div>
+              {selectedIds.size === imageCards.length && imageCards.length > 0 && (
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={theme.bg.primary} strokeWidth="3">
+                  <path d="M20 6L9 17l-5-5" />
+                </svg>
+              )}
             </div>
-          )
-        })}
+            全选
+          </button>
+
+          {/* 统计信息 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: theme.text.secondary, fontSize: 13 }}>
+            <span>
+              已选择{' '}
+              <span style={{ color: theme.accent.primary, fontWeight: 600 }}>{selectedIds.size}</span>
+            </span>
+            <span style={{ color: theme.text.muted }}>/</span>
+            <span>{imageCards.length} 张图片</span>
+          </div>
+        </div>
+
+        {/* 导出按钮 */}
+        <button
+          onClick={() => {
+            if (selectedIds.size === 0) {
+              alert('请先选择要导出的图片')
+              return
+            }
+            // 默认选中所有字段
+            if (exportFields.size === 0) {
+              setExportFields(new Set(availableFields))
+            }
+            setShowExportModal(true)
+          }}
+          disabled={selectedIds.size === 0}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '10px 20px',
+            borderRadius: 8,
+            border: 'none',
+            background: selectedIds.size > 0 ? theme.accent.gradient : theme.bg.tertiary,
+            color: selectedIds.size > 0 ? theme.bg.primary : theme.text.muted,
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: selectedIds.size > 0 ? 'pointer' : 'not-allowed',
+            transition: 'all 0.2s',
+            boxShadow: selectedIds.size > 0 ? theme.shadow.glow : 'none',
+          }}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          导出 CSV
+        </button>
       </div>
+
+      {/* 虚拟滚动容器 */}
+      <div
+        ref={containerRef}
+        onScroll={handleScroll}
+        style={{
+          flex: 1,
+          overflow: 'auto',
+          padding: 24,
+        }}
+      >
+        <div
+          style={{
+            height: totalHeight,
+            position: 'relative',
+          }}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              top: startRow * rowHeight,
+              left: 0,
+              right: 0,
+              display: 'grid',
+              gridTemplateColumns: `repeat(${columns}, 1fr)`,
+              gap: gap,
+            }}
+          >
+            {visibleCards.map(({ card, originalIndex }, i) => (
+              <ImageCardItem
+                key={originalIndex}
+                card={card}
+                index={originalIndex}
+                isSelected={selectedIds.has(originalIndex)}
+                onToggleSelect={toggleSelect}
+                animationDelay={(i % (columns * 2)) * 30}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* 导出字段选择 Modal */}
+      <ExportModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        fields={availableFields}
+        selectedFields={exportFields}
+        onToggleField={toggleExportField}
+        onExport={handleExport}
+        selectedCount={selectedIds.size}
+      />
     </div>
   )
 }

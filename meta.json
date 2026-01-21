@@ -1,1 +1,1 @@
-{"main":"dist/main.umd.js","contributes":{"vizQuery.chart.renderer":[{"id":"<%= chartId %>","name":"图虫image-viewer","content":"dist/index.html","icon":""}]}}
+{"main":"dist/main.umd.js","contributes":{"vizQuery.chart.renderer":[{"id":"<%= chartId %>","name":"图虫image-viewer1","content":"dist/index.html","icon":""}]}}
