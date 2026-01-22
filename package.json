@@ -23,9 +23,9 @@
     "vizQuery.chart.renderer": [
       {
         "id": "<%= chartId %>",
-        "name": "图虫image-viewer1",
+        "name": "图虫image-viewer",
         "content": "dist/index.html",
-        "icon": ""
+        "icon": "assets/tc.webp"
       }
     ]
   }

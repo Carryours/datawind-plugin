@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react'
-import { Checkbox } from 'antd'
+import { Checkbox, Tooltip } from 'antd'
 import { FieldInfo, ImageCard } from '../types'
 import '../styles/index.less'
 
@@ -78,7 +78,11 @@ export const ImageCardItem: React.FC<ImageCardItemProps> = React.memo(
         )
       }
 
-      return <span className="field-value">{field.value}</span>
+      return (
+        <Tooltip title={field.value} placement="topLeft" mouseEnterDelay={0.3}>
+          <span className="field-value">{field.value}</span>
+        </Tooltip>
+      )
     }
 
     return (
@@ -153,7 +157,6 @@ export const ImageCardItem: React.FC<ImageCardItemProps> = React.memo(
         <div className="image-card-fields">
           {card.fields
             .filter((field) => field.name !== '预览' && !field.isImage)
-            .slice(0, 4)
             .map((field, idx) => (
               <div key={idx} className="field-row">
                 <span className="field-label">{field.name}</span>

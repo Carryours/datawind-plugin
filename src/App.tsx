@@ -232,7 +232,7 @@ const App: React.FC = () => {
           description={
             <div>
               <div style={{ fontSize: 16, fontWeight: 500, marginBottom: 4 }}>暂无图片数据</div>
-              <div style={{ fontSize: 13, color: theme.text.muted }}>请配置包含图片 URL 的维度字段</div>
+              <div style={{ fontSize: 13, color: theme.text.muted }}>请在维度中添加预览字段</div>
             </div>
           }
         />
