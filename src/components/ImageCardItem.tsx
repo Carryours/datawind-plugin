@@ -89,6 +89,7 @@ export const ImageCardItem: React.FC<ImageCardItemProps> = React.memo(
       <div
         className={`card-enter image-card${isSelected ? ' selected' : ''}`}
         style={{ animationDelay: `${animationDelay}ms` }}
+        onClick={() => onToggleSelect(index)}
       >
         {/* 图片区域 */}
         <div className="image-card-image-wrapper">
@@ -101,21 +102,26 @@ export const ImageCardItem: React.FC<ImageCardItemProps> = React.memo(
           )}
 
           {/* 复选框 */}
-          <div
-            className="image-card-checkbox"
-            onClick={(e) => {
-              e.stopPropagation()
-              onToggleSelect(index)
-            }}
-          >
-            <Checkbox
-              checked={isSelected}
+          <div className="image-card-checkbox">
+            <Checkbox checked={isSelected} />
+          </div>
+
+          {/* 查看大图按钮 */}
+          {imageLoaded && !imageError && (
+            <div
+              className="image-card-preview-btn"
               onClick={(e) => {
                 e.stopPropagation()
-                onToggleSelect(index)
+                if (card.imageUrl) {
+                  window.open(card.imageUrl, '_blank')
+                }
               }}
-            />
-          </div>
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M15 3h6v6M14 10l6.1-6.1M9 21H3v-6M10 14l-6.1 6.1" />
+              </svg>
+            </div>
+          )}
 
           {/* 分类标签 */}
           {card.lrZs && <div className="image-card-badge">{card.lrZs}</div>}
@@ -126,12 +132,6 @@ export const ImageCardItem: React.FC<ImageCardItemProps> = React.memo(
             data-src={card.imageUrl}
             alt="图片"
             className={`image-card-img${imageLoaded ? ' loaded' : ''}`}
-            onClick={(e) => {
-              e.stopPropagation()
-              if (card.imageUrl) {
-                window.open(card.imageUrl, '_blank')
-              }
-            }}
             onLoad={() => setImageLoaded(true)}
             onError={() => {
               setImageError(true)
