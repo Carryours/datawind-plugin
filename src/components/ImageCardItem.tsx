@@ -15,7 +15,6 @@ export const ImageCardItem: React.FC<ImageCardItemProps> = React.memo(
   ({ card, index, isSelected, onToggleSelect, animationDelay }) => {
     const [imageLoaded, setImageLoaded] = useState(false)
     const [imageError, setImageError] = useState(false)
-    const [activeTooltip, setActiveTooltip] = useState<string | null>(null)
     const imgRef = useRef<HTMLImageElement>(null)
 
     // 使用 IntersectionObserver 懒加载
@@ -39,7 +38,7 @@ export const ImageCardItem: React.FC<ImageCardItemProps> = React.memo(
       return () => observer.disconnect()
     }, [])
 
-    const renderFieldValue = (field: FieldInfo, fieldIndex: number) => {
+    const renderFieldValue = (field: FieldInfo) => {
       if (!field.value) return <span style={{ color: theme.text.muted }}>-</span>
 
       if (field.isImage) {
@@ -79,21 +78,7 @@ export const ImageCardItem: React.FC<ImageCardItemProps> = React.memo(
         )
       }
 
-      const tooltipKey = `${index}-${fieldIndex}`
-      const isOverflowing = field.value.length > 15
-
-      return (
-        <div
-          className="field-value"
-          onMouseEnter={() => isOverflowing && setActiveTooltip(tooltipKey)}
-          onMouseLeave={() => setActiveTooltip(null)}
-        >
-          {field.value}
-          {isOverflowing && activeTooltip === tooltipKey && (
-            <div className="tooltip">{field.value}</div>
-          )}
-        </div>
-      )
+      return <span className="field-value">{field.value}</span>
     }
 
     return (
@@ -266,15 +251,15 @@ export const ImageCardItem: React.FC<ImageCardItemProps> = React.memo(
           )}
         </div>
 
-        {/* 字段信息 - 允许 overflow 以显示 tooltip */}
-        <div style={{ padding: '14px 16px', overflow: 'visible', position: 'relative' }}>
+        {/* 字段信息 */}
+        <div style={{ padding: '14px 16px' }}>
           {card.fields
             .filter((field) => field.name !== '预览' && !field.isImage)
             .slice(0, 4)
             .map((field, idx) => (
               <div key={idx} className="field-row">
                 <span className="field-label">{field.name}</span>
-                {renderFieldValue(field, idx)}
+                {renderFieldValue(field)}
               </div>
             ))}
         </div>

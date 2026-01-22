@@ -59,13 +59,12 @@
   animation: shimmer 1.5s infinite;
 }
 
-// ============ Tooltip 样式 ============
+// ============ 字段样式 ============
 .field-row {
   display: flex;
   font-size: 12px;
   line-height: 1.5;
   font-family: @font-family;
-  position: relative;
 
   &:not(:last-child) {
     margin-bottom: 8px;
@@ -87,74 +86,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   color: @text-primary;
-  position: relative;
-  cursor: default;
-
-  // Tooltip 容器
-  &[data-tooltip] {
-    &:hover {
-      .tooltip {
-        opacity: 1;
-        visibility: visible;
-        transform: translateY(0);
-      }
-    }
-  }
-}
-
-// 独立的 Tooltip 样式
-.tooltip {
-  position: absolute;
-  left: 0;
-  top: 100%;
-  margin-top: 8px;
-  padding: 10px 14px;
-  background-color: @text-primary;
-  color: #fff;
-  font-size: 12px;
-  line-height: 1.6;
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
-  white-space: normal;
-  word-break: break-all;
-  max-width: 300px;
-  min-width: 120px;
-  z-index: 9999;
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(4px);
-  transition: all 0.15s ease;
-  pointer-events: none;
-
-  // 小箭头
-  &::before {
-    content: '';
-    position: absolute;
-    top: -6px;
-    left: 16px;
-    border-left: 6px solid transparent;
-    border-right: 6px solid transparent;
-    border-bottom: 6px solid @text-primary;
-  }
-}
-
-// ============ 滚动条样式 ============
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: @bg-tertiary;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 4px;
-
-  &:hover {
-    background: #94a3b8;
-  }
 }
 
 // ============ 链接样式 ============
