@@ -100,3 +100,105 @@
     text-decoration: underline;
   }
 }
+
+// ============ 图片卡片样式 ============
+.image-card {
+  background-color: @bg-secondary;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid @border-subtle;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+
+  &:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1), 0 4px 8px rgba(0, 0, 0, 0.04);
+    border-color: @border-medium;
+  }
+
+  &.selected {
+    border-color: #1890ff;
+    box-shadow: 0 0 0 1px #1890ff, 0 0 20px rgba(24, 144, 255, 0.15);
+
+    &:hover {
+      box-shadow: 0 0 0 1px #1890ff, 0 0 20px rgba(24, 144, 255, 0.15), 0 10px 30px rgba(0, 0, 0, 0.1), 0 4px 8px rgba(0, 0, 0, 0.04);
+    }
+  }
+}
+
+.image-card-image-wrapper {
+  position: relative;
+  width: 100%;
+  padding-top: 75%;
+  overflow: hidden;
+  background-color: #e2e8f0;
+}
+
+.image-card-checkbox {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 10;
+  cursor: pointer;
+
+  .ant-checkbox {
+    transform: scale(1.4);
+    transform-origin: top left;
+
+    .ant-checkbox-inner {
+      border-radius: 6px;
+    }
+  }
+}
+
+.image-card-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background-color: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 8px;
+  border-radius: 4px;
+  z-index: 10;
+  font-family: @font-family;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.image-card-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s;
+  opacity: 0;
+  cursor: pointer;
+
+  &.loaded {
+    opacity: 1;
+  }
+
+  &:hover {
+    transform: scale(1.05);
+  }
+}
+
+.image-card-error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: @text-muted;
+  gap: 8px;
+}
+
+.image-card-fields {
+  padding: 14px 16px;
+}

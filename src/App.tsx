@@ -1,4 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react'
+import { Button, Empty, message } from 'antd'
+import { CheckSquareOutlined, DownloadOutlined } from '@ant-design/icons'
 import { FieldMap, Settings, FieldInfo, ImageCard } from './types'
 import { theme } from './theme'
 import { isUrl, isImageUrl } from './utils'
@@ -108,7 +110,7 @@ const App: React.FC = () => {
       .filter(Boolean)
 
     if (selectedCards.length === 0) {
-      alert('请先选择要导出的图片')
+      message.warning('请先选择要导出的图片')
       return
     }
 
@@ -221,33 +223,19 @@ const App: React.FC = () => {
           height: '100%',
           backgroundColor: theme.bg.primary,
           display: 'flex',
-          flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          color: theme.text.muted,
-          fontFamily: "'DM Sans', sans-serif",
         }}
       >
-        <div
-          style={{
-            width: 80,
-            height: 80,
-            borderRadius: 20,
-            backgroundColor: theme.bg.secondary,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginBottom: 24,
-          }}
-        >
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke={theme.text.muted} strokeWidth="1.5">
-            <rect x="3" y="3" width="18" height="18" rx="2" />
-            <circle cx="8.5" cy="8.5" r="1.5" />
-            <path d="M21 15l-5-5L5 21" />
-          </svg>
-        </div>
-        <p style={{ fontSize: 16, fontWeight: 500, marginBottom: 8 }}>暂无图片数据</p>
-        <p style={{ fontSize: 13, color: theme.text.muted }}>请配置包含图片 URL 的维度字段</p>
+        <Empty
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+          description={
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 500, marginBottom: 4 }}>暂无图片数据</div>
+              <div style={{ fontSize: 13, color: theme.text.muted }}>请配置包含图片 URL 的维度字段</div>
+            </div>
+          }
+        />
       </div>
     )
   }
@@ -280,57 +268,19 @@ const App: React.FC = () => {
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           {/* 全选按钮 */}
-          <button
+          <Button
+            icon={<CheckSquareOutlined />}
             onClick={toggleSelectAll}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '8px 14px',
-              borderRadius: 8,
-              border: `1px solid ${theme.border.medium}`,
-              backgroundColor: 'transparent',
-              color: theme.text.secondary,
-              fontSize: 13,
-              fontWeight: 500,
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = theme.text.muted
-              e.currentTarget.style.color = theme.text.primary
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = theme.border.medium
-              e.currentTarget.style.color = theme.text.secondary
-            }}
+            type={selectedIds.size === imageCards.length && imageCards.length > 0 ? 'primary' : 'default'}
           >
-            <div
-              style={{
-                width: 16,
-                height: 16,
-                borderRadius: 4,
-                border: `2px solid ${selectedIds.size === imageCards.length && imageCards.length > 0 ? theme.accent.primary : theme.border.strong}`,
-                backgroundColor: selectedIds.size === imageCards.length && imageCards.length > 0 ? theme.accent.primary : 'transparent',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              {selectedIds.size === imageCards.length && imageCards.length > 0 && (
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={theme.bg.primary} strokeWidth="3">
-                  <path d="M20 6L9 17l-5-5" />
-                </svg>
-              )}
-            </div>
             全选
-          </button>
+          </Button>
 
           {/* 统计信息 */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: theme.text.secondary, fontSize: 13 }}>
             <span>
               已选择{' '}
-              <span style={{ color: theme.accent.primary, fontWeight: 600 }}>{selectedIds.size}</span>
+              <span style={{ color: '#1890ff', fontWeight: 600 }}>{selectedIds.size}</span>
             </span>
             <span style={{ color: theme.text.muted }}>/</span>
             <span>{imageCards.length} 张图片</span>
@@ -338,10 +288,12 @@ const App: React.FC = () => {
         </div>
 
         {/* 导出按钮 */}
-        <button
+        <Button
+          type="primary"
+          icon={<DownloadOutlined />}
           onClick={() => {
             if (selectedIds.size === 0) {
-              alert('请先选择要导出的图片')
+              message.warning('请先选择要导出的图片')
               return
             }
             // 默认选中所有字段
@@ -351,29 +303,9 @@ const App: React.FC = () => {
             setShowExportModal(true)
           }}
           disabled={selectedIds.size === 0}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '10px 20px',
-            borderRadius: 8,
-            border: 'none',
-            background: selectedIds.size > 0 ? theme.accent.gradient : theme.bg.tertiary,
-            color: selectedIds.size > 0 ? theme.bg.primary : theme.text.muted,
-            fontSize: 14,
-            fontWeight: 600,
-            cursor: selectedIds.size > 0 ? 'pointer' : 'not-allowed',
-            transition: 'all 0.2s',
-            boxShadow: selectedIds.size > 0 ? theme.shadow.glow : 'none',
-          }}
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="7 10 12 15 17 10" />
-            <line x1="12" y1="15" x2="12" y2="3" />
-          </svg>
           导出 CSV
-        </button>
+        </Button>
       </div>
 
       {/* 虚拟滚动容器 */}

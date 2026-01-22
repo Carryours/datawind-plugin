@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react'
-import { theme } from '../theme'
+import { Checkbox } from 'antd'
 import { FieldInfo, ImageCard } from '../types'
 import '../styles/index.less'
 
@@ -39,7 +39,7 @@ export const ImageCardItem: React.FC<ImageCardItemProps> = React.memo(
     }, [])
 
     const renderFieldValue = (field: FieldInfo) => {
-      if (!field.value) return <span style={{ color: theme.text.muted }}>-</span>
+      if (!field.value) return <span style={{ color: '#94a3b8' }}>-</span>
 
       if (field.isImage) {
         return (
@@ -83,136 +83,45 @@ export const ImageCardItem: React.FC<ImageCardItemProps> = React.memo(
 
     return (
       <div
-        className="card-enter"
-        style={{
-          backgroundColor: theme.bg.card,
-          borderRadius: 16,
-          overflow: 'hidden',
-          border: `1px solid ${isSelected ? theme.status.selected : theme.border.subtle}`,
-          transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-          cursor: 'pointer',
-          animationDelay: `${animationDelay}ms`,
-          boxShadow: isSelected ? `0 0 0 1px ${theme.status.selected}, ${theme.shadow.glow}` : theme.shadow.sm,
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.transform = 'translateY(-6px)'
-          e.currentTarget.style.boxShadow = isSelected
-            ? `0 0 0 1px ${theme.status.selected}, ${theme.shadow.glow}, ${theme.shadow.lg}`
-            : theme.shadow.lg
-          e.currentTarget.style.borderColor = isSelected ? theme.status.selected : theme.border.medium
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = ''
-          e.currentTarget.style.boxShadow = isSelected
-            ? `0 0 0 1px ${theme.status.selected}, ${theme.shadow.glow}`
-            : theme.shadow.sm
-          e.currentTarget.style.borderColor = isSelected ? theme.status.selected : theme.border.subtle
-        }}
+        className={`card-enter image-card${isSelected ? ' selected' : ''}`}
+        style={{ animationDelay: `${animationDelay}ms` }}
       >
         {/* 图片区域 */}
-        <div
-          style={{
-            position: 'relative',
-            width: '100%',
-            paddingTop: '75%',
-            overflow: 'hidden',
-            backgroundColor: '#e2e8f0',
-          }}
-        >
+        <div className="image-card-image-wrapper">
           {/* 骨架屏 */}
           {!imageLoaded && !imageError && (
             <div
               className="skeleton-shimmer"
-              style={{
-                position: 'absolute',
-                inset: 0,
-              }}
+              style={{ position: 'absolute', inset: 0 }}
             />
           )}
 
           {/* 复选框 */}
           <div
-            style={{
-              position: 'absolute',
-              top: 12,
-              left: 12,
-              width: 24,
-              height: 24,
-              borderRadius: 8,
-              backgroundColor: isSelected ? theme.status.selected : 'rgba(255, 255, 255, 0.9)',
-              backdropFilter: 'blur(8px)',
-              border: `2px solid ${isSelected ? theme.status.selected : 'rgba(0, 0, 0, 0.2)'}`,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 10,
-              transition: 'all 0.2s',
-              cursor: 'pointer',
-              boxShadow: '0 2px 6px rgba(0, 0, 0, 0.1)',
-            }}
+            className="image-card-checkbox"
             onClick={(e) => {
               e.stopPropagation()
               onToggleSelect(index)
             }}
-            onMouseEnter={(e) => {
-              if (!isSelected) {
-                e.currentTarget.style.borderColor = theme.status.selected
-                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 1)'
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!isSelected) {
-                e.currentTarget.style.borderColor = 'rgba(0, 0, 0, 0.2)'
-                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.9)'
-              }
-            }}
           >
-            {isSelected && (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="3">
-                <path d="M20 6L9 17l-5-5" />
-              </svg>
-            )}
+            <Checkbox
+              checked={isSelected}
+              onClick={(e) => {
+                e.stopPropagation()
+                onToggleSelect(index)
+              }}
+            />
           </div>
 
           {/* 分类标签 */}
-          {card.lrZs && (
-            <div
-              style={{
-                position: 'absolute',
-                top: 12,
-                right: 12,
-                backgroundColor: theme.status.badge,
-                color: '#ffffff',
-                fontSize: 11,
-                fontWeight: 700,
-                padding: '5px 10px',
-                borderRadius: 6,
-                zIndex: 10,
-                letterSpacing: '0.02em',
-                fontFamily: "'DM Sans', sans-serif",
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
-              }}
-            >
-              {card.lrZs}
-            </div>
-          )}
+          {card.lrZs && <div className="image-card-badge">{card.lrZs}</div>}
 
           {/* 图片 */}
           <img
             ref={imgRef}
             data-src={card.imageUrl}
             alt="图片"
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s',
-              opacity: imageLoaded ? 1 : 0,
-              cursor: 'pointer',
-            }}
+            className={`image-card-img${imageLoaded ? ' loaded' : ''}`}
             onClick={(e) => {
               e.stopPropagation()
               if (card.imageUrl) {
@@ -228,18 +137,7 @@ export const ImageCardItem: React.FC<ImageCardItemProps> = React.memo(
 
           {/* 错误状态 */}
           {imageError && (
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: theme.text.muted,
-                gap: 8,
-              }}
-            >
+            <div className="image-card-error">
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <rect x="3" y="3" width="18" height="18" rx="2" />
                 <circle cx="8.5" cy="8.5" r="1.5" />
@@ -252,7 +150,7 @@ export const ImageCardItem: React.FC<ImageCardItemProps> = React.memo(
         </div>
 
         {/* 字段信息 */}
-        <div style={{ padding: '14px 16px' }}>
+        <div className="image-card-fields">
           {card.fields
             .filter((field) => field.name !== '预览' && !field.isImage)
             .slice(0, 4)
