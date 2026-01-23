@@ -17,10 +17,19 @@ export const ImageCardItem: React.FC<ImageCardItemProps> = React.memo(
     const [imageError, setImageError] = useState(false)
     const imgRef = useRef<HTMLImageElement>(null)
 
+    // 当 imageUrl 变化时重置加载状态
+    useEffect(() => {
+      setImageLoaded(false)
+      setImageError(false)
+    }, [card.imageUrl])
+
     // 使用 IntersectionObserver 懒加载
     useEffect(() => {
       const img = imgRef.current
-      if (!img) return
+      if (!img || !card.imageUrl) return
+
+      // 使用透明占位符图片，避免空 src 触发 onError
+      img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
 
       const observer = new IntersectionObserver(
         (entries) => {
@@ -36,7 +45,7 @@ export const ImageCardItem: React.FC<ImageCardItemProps> = React.memo(
 
       observer.observe(img)
       return () => observer.disconnect()
-    }, [])
+    }, [card.imageUrl])
 
     const renderFieldValue = (field: FieldInfo) => {
       if (!field.value) return <span style={{ color: '#94a3b8' }}>-</span>

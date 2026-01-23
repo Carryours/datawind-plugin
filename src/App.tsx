@@ -63,7 +63,7 @@ const App: React.FC = () => {
     return datasets
       .map((row: any) => {
         let imageUrl = ''
-        let lrZs = ''
+        let fileFormat = ''
         let materialId = ''
         const fields: FieldInfo[] = []
 
@@ -77,8 +77,22 @@ const App: React.FC = () => {
             imageUrl = value
           }
 
-          if (fieldName === 'LR_ZS' || fieldId === 'LR_ZS' || fieldName.includes('LR_ZS')) {
-            lrZs = value
+          // 从图片 URL 中提取文件格式
+          if (!fileFormat && fieldIsImage && value) {
+            try {
+              const url = new URL(value)
+              const pathname = url.pathname
+              const ext = pathname.split('.').pop()?.toLowerCase() || ''
+              if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'ico', 'tiff', 'avif'].includes(ext)) {
+                fileFormat = ext.toUpperCase()
+              }
+            } catch {
+              // 如果不是有效 URL，尝试直接从字符串提取
+              const ext = value.split('.').pop()?.split('?')[0]?.toLowerCase() || ''
+              if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'ico', 'tiff', 'avif'].includes(ext)) {
+                fileFormat = ext.toUpperCase()
+              }
+            }
           }
 
           if (!materialId && (fieldName === '素材id' || fieldName === '素材ID' || fieldName === '素材Id')) {
@@ -94,7 +108,7 @@ const App: React.FC = () => {
           })
         }
 
-        return { imageUrl, fields, lrZs, materialId }
+        return { imageUrl, fields, lrZs: fileFormat, materialId }
       })
       .filter((card: ImageCard) => card.imageUrl)
   }, [vizData])
@@ -163,8 +177,10 @@ const App: React.FC = () => {
     ) => {
       if (!e.data || typeof e.data !== 'object') return
       const { type, data } = e.data
+      console.log(type)
       if (type === 'propertiesChange') {
         if (data?.vizData) {
+          console.log('vizData', data.vizData)
           setVizData(data.vizData)
           setSelectedIds(new Set())
         }
