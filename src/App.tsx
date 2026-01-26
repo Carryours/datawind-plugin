@@ -77,22 +77,9 @@ const App: React.FC = () => {
             imageUrl = value
           }
 
-          // 从图片 URL 中提取文件格式
-          if (!fileFormat && fieldIsImage && value) {
-            try {
-              const url = new URL(value)
-              const pathname = url.pathname
-              const ext = pathname.split('.').pop()?.toLowerCase() || ''
-              if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'ico', 'tiff', 'avif'].includes(ext)) {
-                fileFormat = ext.toUpperCase()
-              }
-            } catch {
-              // 如果不是有效 URL，尝试直接从字符串提取
-              const ext = value.split('.').pop()?.split('?')[0]?.toLowerCase() || ''
-              if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'ico', 'tiff', 'avif'].includes(ext)) {
-                fileFormat = ext.toUpperCase()
-              }
-            }
+          // 从"文件格式"字段获取文件格式
+          if (!fileFormat && fieldName === '文件格式' && value) {
+            fileFormat = value.toUpperCase()
           }
 
           if (!materialId && (fieldName === '素材id' || fieldName === '素材ID' || fieldName === '素材Id')) {
