@@ -42,7 +42,7 @@ export const activate = (context: any) => {
               props: {
                 min: 8,
                 max: 32,
-                defaultValue: 16,
+                defaultValue: 8,
               },
             }
           }

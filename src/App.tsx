@@ -257,7 +257,7 @@ const App: React.FC = () => {
       {/* 顶部工具栏 */}
       <div
         style={{
-          padding: '14px 24px',
+          padding: '10px 16px',
           background: 'f8fafc',
           borderBottom: `1px solid ${theme.border.medium}`,
           boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02)',
@@ -318,7 +318,7 @@ const App: React.FC = () => {
         style={{
           flex: 1,
           overflow: 'auto',
-          padding: 24,
+          padding: 12,
         }}
       >
         <div
