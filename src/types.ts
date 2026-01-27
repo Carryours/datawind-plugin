@@ -21,6 +21,6 @@ export interface FieldInfo {
 export interface ImageCard {
   imageUrl: string
   fields: FieldInfo[]
-  lrZs?: string
+  fileFormat?: string
   materialId?: string
 }

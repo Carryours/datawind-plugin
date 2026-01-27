@@ -133,7 +133,7 @@ export const ImageCardItem: React.FC<ImageCardItemProps> = React.memo(
           )}
 
           {/* 分类标签 */}
-          {card.lrZs && <div className="image-card-badge">{card.lrZs}</div>}
+          {card.fileFormat && <div className="image-card-badge">{card.fileFormat}</div>}
 
           {/* 图片 */}
           <img
@@ -165,7 +165,7 @@ export const ImageCardItem: React.FC<ImageCardItemProps> = React.memo(
         {/* 字段信息 */}
         <div className="image-card-fields">
           {card.fields
-            .filter((field) => field.name !== '预览' && !field.isImage)
+            .filter((field) => field.name !== '预览' && field.name !== '文件格式' && !field.isImage)
             .map((field, idx) => (
               <div key={idx} className="field-row">
                 <span className="field-label">{field.name}</span>

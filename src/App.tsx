@@ -95,7 +95,7 @@ const App: React.FC = () => {
           })
         }
 
-        return { imageUrl, fields, lrZs: fileFormat, materialId }
+        return { imageUrl, fields, fileFormat, materialId }
       })
       .filter((card: ImageCard) => card.imageUrl)
   }, [vizData])
@@ -258,7 +258,7 @@ const App: React.FC = () => {
       <div
         style={{
           padding: '14px 24px',
-          background: 'linear-gradient(to right, #ffffff, #f8fafc)',
+          background: 'f8fafc',
           borderBottom: `1px solid ${theme.border.medium}`,
           boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02)',
           display: 'flex',
